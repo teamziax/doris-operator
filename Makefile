@@ -38,6 +38,29 @@ else
 VERSION=$(shell echo $(LATEST_TAG) | tr -d "v")
 endif
 
+OPERATOR_VERSION ?= 1.6.1
+DORIS_VERSION ?= 2.1.6
+# CHANNELS define the bundle channels used in the bundle.
+# Add a new line here if you would like to change its default config. (E.g CHANNELS = "preview,fast,stable")
+# To re-generate a bundle for other specific channels without changing the standard setup, you can:
+# - use the CHANNELS as arg of the bundle target (e.g make bundle CHANNELS=preview,fast,stable)
+# - use environment variables to overwrite this value (e.g export CHANNELS="preview,fast,stable")
+CHANNELS = "alpha"
+ifneq ($(origin CHANNELS), undefined)
+BUNDLE_CHANNELS := --channels=$(CHANNELS)
+endif
+
+# DEFAULT_CHANNEL defines the default channel used in the bundle.
+# Add a new line here if you would like to change its default config. (E.g DEFAULT_CHANNEL = "stable")
+# To re-generate a bundle for any other default channel without changing the default setup, you can:
+# - use the DEFAULT_CHANNEL as arg of the bundle target (e.g make bundle DEFAULT_CHANNEL=stable)
+# - use environment variables to overwrite this value (e.g export DEFAULT_CHANNEL="stable")
+DEFAULT_CHANNEL = "alpha"
+ifneq ($(origin DEFAULT_CHANNEL), undefined)
+BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
+endif
+BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
+
 LDFLAGS="-s -X \"main.VERSION=$(VERSION)\" -X \"main.COMMIT=$(LATEST_COMMIT)\" -X \"main.BUILD_DATE=$(BUILD_DATE)\""
 
 
@@ -81,6 +104,12 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 	cat config/crd/bases/doris.selectdb.com_dorisclusters.yaml > config/crd/bases/crds.yaml
 	cat config/crd/bases/disaggregated.cluster.doris.com_dorisdisaggregatedclusters.yaml >> config/crd/bases/crds.yaml
 
+.PHONY: bundle
+bundle: manifests kustomize ## Generate bundle manifests and metadata, then validate generated files.
+	operator-sdk generate kustomize manifests -q
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
+	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	operator-sdk bundle validate ./bundle
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -236,3 +265,19 @@ rm -rf $$TMP_DIR ;\
 }
 endef
 
+.PHONY: deploy-bundle
+build-and-push: generate bundle
+	podman pull docker.io/selectdb/doris.k8s-operator:$(OPERATOR_VERSION)
+	podman pull docker.io/selectdb/doris.fe-ubuntu:$(DORIS_VERSION)
+	podman pull docker.io/selectdb/doris.be-ubuntu:$(DORIS_VERSION)
+	podman pull docker.io/selectdb/doris.broker-buntu:$(DORIS_VERSION)
+	podman tag docker.io/selectdb/doris.k8s-operator:$(OPERATOR_VERSION) quay.io/ziax/doris-operator:$(OPERATOR_VERSION)
+	podman tag docker.io/selectdb/doris.fe-ubuntu:$(DORIS_VERSION) quay.io/ziax/doris.fe-ubuntu:$(DORIS_VERSION)
+	podman tag docker.io/selectdb/doris.be-ubuntu:$(DORIS_VERSION) quay.io/ziax/doris.be-ubuntu:$(DORIS_VERSION)
+	podman tag docker.io/selectdb/doris.broker-buntu:$(DORIS_VERSION) quay.io/ziax/doris.broker-ubuntu:$(DORIS_VERSION)
+	podman push quay.io/ziax/doris-operator:$(OPERATOR_VERSION)
+	podman push quay.io/ziax/doris.fe-ubuntu:$(DORIS_VERSION)
+	podman push quay.io/ziax/doris.be-ubuntu:$(DORIS_VERSION)
+	podman push quay.io/ziax/doris.broker-ubuntu:$(DORIS_VERSION)
+	podman build -t quay.io/ziax/doris-operator-bundle:$(VERSION) -f bundle.Dockerfile .
+	podman push quay.io/ziax/doris-operator-bundle:$(VERSION)

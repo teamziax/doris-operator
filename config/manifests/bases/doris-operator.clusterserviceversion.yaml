@@ -1,0 +1,45 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Basic Install
+    description: Doris Kubernetes operator
+    operatorframework.io/suggested-namespace: openshift-operators
+    repository: https://github.com/apache/doris-operator
+    support: Apache Doris
+  name: doris-operator.v0.0.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions: {}
+  description: Doris Kubernetes operator
+  displayName: Doris Operator
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      deployments: null
+    strategy: ""
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - database
+  - doris
+  - analytics
+  links:
+  - name: Doris Operator
+    url: https://github.com/apache/doris-operator
+  maturity: alpha
+  provider:
+    name: Apache Doris
+    url: https://doris.apache.org/
+  version: 0.0.0

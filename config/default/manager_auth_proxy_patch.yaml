@@ -48,12 +48,14 @@ spec:
           capabilities:
             drop:
               - "ALL"
-        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1
+        image: quay.io/okderators/kube-rbac-proxy:4.15
         args:
         - "--secure-listen-address=0.0.0.0:8443"
         - "--upstream=http://127.0.0.1:8080/"
+        - "--tls-cert-file=/etc/tls/private/tls.crt"
+        - "--tls-private-key-file=/etc/tls/private/tls.key"
         - "--logtostderr=true"
-        - "--v=0"
+        - "--http2-disable"
         ports:
         - containerPort: 8443
           protocol: TCP
@@ -65,8 +67,20 @@ spec:
           requests:
             cpu: 5m
             memory: 64Mi
+        volumeMounts:
+          - mountPath: /etc/tls/private
+            name: doris-operator-tls
+            readOnly: true
       - name: manager
         args:
         - "--health-probe-bind-address=:8081"
         - "--metrics-bind-address=127.0.0.1:8080"
         - "--leader-elect"
+      volumes:
+        # Secret created by the service CA operator.
+        # We assume that the Kubernetes service exposing the application's pods has the
+        # "service.beta.openshift.io/serving-cert-secret-name: doris-operator-tls"
+        # annotation.
+        - name: doris-operator-tls
+          secret:
+            secretName: doris-operator-tls

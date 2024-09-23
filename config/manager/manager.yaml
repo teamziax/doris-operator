@@ -84,7 +84,7 @@ spec:
         #   type: RuntimeDefault
       containers:
       - command:
-        - /manager
+        - /dorisoperator
         args:
         - --leader-elect
         image: controller:latest
