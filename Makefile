@@ -38,8 +38,8 @@ else
 VERSION=$(shell echo $(LATEST_TAG) | tr -d "v")
 endif
 
-OPERATOR_VERSION ?= 1.6.1
-DORIS_VERSION ?= 2.1.6
+OPERATOR_VERSION ?= 25.2.1
+DORIS_VERSION ?= 2.1.9
 # CHANNELS define the bundle channels used in the bundle.
 # Add a new line here if you would like to change its default config. (E.g CHANNELS = "preview,fast,stable")
 # To re-generate a bundle for other specific channels without changing the standard setup, you can:
@@ -49,6 +49,12 @@ CHANNELS = "alpha"
 ifneq ($(origin CHANNELS), undefined)
 BUNDLE_CHANNELS := --channels=$(CHANNELS)
 endif
+
+# CONTAINER_TOOL defines the container tool to be used for building images.
+# Be aware that the target commands are only tested with Docker which is
+# scaffolded by default. However, you might want to replace it to use other
+# tools. (i.e. podman)
+CONTAINER_TOOL ?= docker
 
 # DEFAULT_CHANNEL defines the default channel used in the bundle.
 # Add a new line here if you would like to change its default config. (E.g DEFAULT_CHANNEL = "stable")
@@ -267,17 +273,17 @@ endef
 
 .PHONY: deploy-bundle
 build-and-push: generate bundle
-	podman pull docker.io/selectdb/doris.k8s-operator:$(OPERATOR_VERSION)
-	podman pull docker.io/selectdb/doris.fe-ubuntu:$(DORIS_VERSION)
-	podman pull docker.io/selectdb/doris.be-ubuntu:$(DORIS_VERSION)
-	podman pull docker.io/selectdb/doris.broker-buntu:$(DORIS_VERSION)
-	podman tag docker.io/selectdb/doris.k8s-operator:$(OPERATOR_VERSION) quay.io/ziax/doris-operator:$(OPERATOR_VERSION)
-	podman tag docker.io/selectdb/doris.fe-ubuntu:$(DORIS_VERSION) quay.io/ziax/doris.fe-ubuntu:$(DORIS_VERSION)
-	podman tag docker.io/selectdb/doris.be-ubuntu:$(DORIS_VERSION) quay.io/ziax/doris.be-ubuntu:$(DORIS_VERSION)
-	podman tag docker.io/selectdb/doris.broker-buntu:$(DORIS_VERSION) quay.io/ziax/doris.broker-ubuntu:$(DORIS_VERSION)
-	podman push quay.io/ziax/doris-operator:$(OPERATOR_VERSION)
-	podman push quay.io/ziax/doris.fe-ubuntu:$(DORIS_VERSION)
-	podman push quay.io/ziax/doris.be-ubuntu:$(DORIS_VERSION)
-	podman push quay.io/ziax/doris.broker-ubuntu:$(DORIS_VERSION)
-	podman build -t quay.io/ziax/doris-operator-bundle:$(VERSION) -f bundle.Dockerfile .
-	podman push quay.io/ziax/doris-operator-bundle:$(VERSION)
+	$(CONTAINER_TOOL) pull docker.io/selectdb/doris.k8s-operator:$(OPERATOR_VERSION) --platform linux/amd64
+	$(CONTAINER_TOOL) pull docker.io/selectdb/doris.fe-ubuntu:$(DORIS_VERSION) --platform linux/amd64
+	$(CONTAINER_TOOL) pull docker.io/selectdb/doris.be-ubuntu:$(DORIS_VERSION) --platform linux/amd64
+	$(CONTAINER_TOOL) pull docker.io/selectdb/doris.broker-ubuntu:$(DORIS_VERSION) --platform linux/amd64
+	$(CONTAINER_TOOL) tag docker.io/selectdb/doris.k8s-operator:$(OPERATOR_VERSION) ${IMG}
+	$(CONTAINER_TOOL) tag docker.io/selectdb/doris.fe-ubuntu:$(DORIS_VERSION) quay.io/ziax/doris.fe-ubuntu:$(DORIS_VERSION)
+	$(CONTAINER_TOOL) tag docker.io/selectdb/doris.be-ubuntu:$(DORIS_VERSION) quay.io/ziax/doris.be-ubuntu:$(DORIS_VERSION)
+	$(CONTAINER_TOOL) tag docker.io/selectdb/doris.broker-ubuntu:$(DORIS_VERSION) quay.io/ziax/doris.broker-ubuntu:$(DORIS_VERSION)
+	$(CONTAINER_TOOL) push ${IMG}
+	$(CONTAINER_TOOL) push quay.io/ziax/doris.fe-ubuntu:$(DORIS_VERSION)
+	$(CONTAINER_TOOL) push quay.io/ziax/doris.be-ubuntu:$(DORIS_VERSION)
+	$(CONTAINER_TOOL) push quay.io/ziax/doris.broker-ubuntu:$(DORIS_VERSION)
+	$(CONTAINER_TOOL) build -t quay.io/ziax/doris-operator-bundle:$(VERSION) -f bundle.Dockerfile --platform linux/amd64 .
+	$(CONTAINER_TOOL) push quay.io/ziax/doris-operator-bundle:$(VERSION)

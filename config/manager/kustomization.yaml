@@ -22,4 +22,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: quay.io/ziax/doris-operator
-  newTag: 1.6.1
+  newTag: 25.2.2
